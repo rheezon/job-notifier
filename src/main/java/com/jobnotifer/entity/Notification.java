@@ -32,6 +32,9 @@ public class Notification {
     @Column(length = 1000)
     private String resumeLink;
     
+    @Column(length = 1000)
+    private String jobLink;
+    
     @Column(nullable = false)
     private String companyName;
     

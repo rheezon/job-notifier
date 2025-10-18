@@ -73,6 +73,7 @@ CREATE TABLE notifications (
     timestamp TIMESTAMP NOT NULL,
     scheduler_run INT NOT NULL,
     resume_link VARCHAR(1000),
+    job_link VARCHAR(1000),
     company_name VARCHAR(255) NOT NULL,
     experience VARCHAR(255),
     location VARCHAR(255),

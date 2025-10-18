@@ -118,12 +118,14 @@ public class JobProcessingService {
             String location = (String) analysisResult.get("location");
             String salary = (String) analysisResult.get("salary");
             String description = (String) analysisResult.get("description");
+            String jobLink = (String) analysisResult.get("jobLink");
             
             Notification notification = new Notification();
             notification.setNotifier(notifier);
             notification.setTimestamp(job.getTimestamp());
             notification.setSchedulerRun(schedulerRun);
             notification.setResumeLink(resumeLink);
+            notification.setJobLink(jobLink);
             notification.setCompanyName(company);
             notification.setExperience(experience);
             notification.setLocation(location);

@@ -12,6 +12,7 @@ public class NotificationResponse {
     private LocalDateTime timestamp;
     private Integer schedulerRun;
     private String resumeLink;
+    private String jobLink;
     private String companyName;
     private String experience;
     private String location;
@@ -30,6 +31,7 @@ public class NotificationResponse {
         response.setTimestamp(notification.getTimestamp());
         response.setSchedulerRun(notification.getSchedulerRun());
         response.setResumeLink(notification.getResumeLink());
+        response.setJobLink(notification.getJobLink());
         response.setCompanyName(notification.getCompanyName());
         response.setExperience(notification.getExperience());
         response.setLocation(notification.getLocation());

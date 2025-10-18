@@ -91,6 +91,7 @@ public class GeminiService {
             result.put("location", jsonNode.has("location") ? jsonNode.get("location").asText() : "Not specified");
             result.put("salary", jsonNode.has("salary") ? jsonNode.get("salary").asText() : "Not specified");
             result.put("description", jsonNode.has("description") ? jsonNode.get("description").asText() : jobPosting);
+            result.put("jobLink", jsonNode.has("jobLink") ? jsonNode.get("jobLink").asText() : null);
             
             log.info("AI Analysis completed. Score: {}, Company: {}", result.get("score"), result.get("company"));
             return result;
@@ -105,6 +106,7 @@ public class GeminiService {
             result.put("location", "Not specified");
             result.put("salary", "Not specified");
             result.put("description", jobPosting);
+            result.put("jobLink", null);
             return result;
         }
     }
