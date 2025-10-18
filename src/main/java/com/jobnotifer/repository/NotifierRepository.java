@@ -9,5 +9,6 @@ import java.util.List;
 @Repository
 public interface NotifierRepository extends JpaRepository<Notifier, Long> {
     List<Notifier> findByUserId(Long userId);
+    long countByUserId(Long userId);
 }
 

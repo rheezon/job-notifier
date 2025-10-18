@@ -25,9 +25,6 @@ public class SchedulerState {
     private Integer currentRun = 0;
     
     @Column(nullable = false)
-    private Integer maxRuns;
-    
-    @Column(nullable = false)
     private LocalDateTime lastRunTimestamp;
     
     @Column(nullable = false)

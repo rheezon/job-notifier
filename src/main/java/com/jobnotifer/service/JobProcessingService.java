@@ -36,12 +36,6 @@ public class JobProcessingService {
     @Value("${scheduler.enabled}")
     private boolean schedulerEnabled;
     
-    @Value("${scheduler.max-runs}")
-    private int maxRuns;
-    
-    @Value("${scheduler.fixed-rate}")
-    private long fixedRate;
-    
     @Value("${ai.relevance.threshold}")
     private double relevanceThreshold;
     
@@ -55,16 +49,11 @@ public class JobProcessingService {
         
         SchedulerState schedulerState = getOrCreateSchedulerState();
         
-        if (schedulerState.getCurrentRun() >= schedulerState.getMaxRuns()) {
-            log.info("Scheduler has reached max runs: {}", schedulerState.getMaxRuns());
-            return;
-        }
-        
         LocalDateTime currentTime = LocalDateTime.now();
         LocalDateTime startWindow = schedulerState.getLastRunTimestamp();
         LocalDateTime endWindow = currentTime;
         
-        log.info("Starting scheduler run {} of {}", schedulerState.getCurrentRun() + 1, schedulerState.getMaxRuns());
+        log.info("Starting scheduler run {}", schedulerState.getCurrentRun() + 1);
         log.info("Processing jobs from {} to {}", startWindow, endWindow);
         log.info("DEBUG: Start window = {}, End window = {}", startWindow, endWindow);
         
@@ -130,7 +119,6 @@ public class JobProcessingService {
             String salary = (String) analysisResult.get("salary");
             String description = (String) analysisResult.get("description");
             
-            // Create notification
             Notification notification = new Notification();
             notification.setNotifier(notifier);
             notification.setTimestamp(job.getTimestamp());
@@ -153,7 +141,6 @@ public class JobProcessingService {
     
     private String generateAndUploadResume(Notifier notifier, Job job) {
         try {
-            // Compile LaTeX to PDF bytes (no temporary file created)
             byte[] pdfBytes = latexCompilerService.compileToPdf(notifier.getResumeLatex());
             
             if (pdfBytes == null) {
@@ -161,7 +148,6 @@ public class JobProcessingService {
                 return null;
             }
             
-            // Upload to Cloudinary directly from bytes
             String fileName = String.format("resume_%s_%s_%s", 
                     notifier.getId(), 
                     job.getId(), 
@@ -186,7 +172,6 @@ public class JobProcessingService {
                     SchedulerState state = new SchedulerState();
                     state.setSchedulerName("job-processor");
                     state.setCurrentRun(0);
-                    state.setMaxRuns(maxRuns);
                     state.setLastRunTimestamp(LocalDateTime.now());
                     state.setEnabled(true);
                     return schedulerStateRepository.save(state);

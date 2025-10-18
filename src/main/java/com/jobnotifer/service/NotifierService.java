@@ -9,6 +9,7 @@ import com.jobnotifer.repository.NotifierRepository;
 import com.jobnotifer.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,10 +25,22 @@ public class NotifierService {
     private final UserRepository userRepository;
     private final NotificationRepository notificationRepository;
     
+    @Value("${notifier.max-per-user}")
+    private int maxNotifiersPerUser;
+    
     @Transactional
     public NotifierResponse createNotifier(Long userId, NotifierRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
+        
+        long currentNotifierCount = notifierRepository.countByUserId(userId);
+        if (currentNotifierCount >= maxNotifiersPerUser) {
+            log.warn("User {} attempted to create notifier but has reached the limit of {}", 
+                    userId, maxNotifiersPerUser);
+            throw new RuntimeException(String.format(
+                    "Maximum notifier limit reached. You can only create up to %d notifiers.", 
+                    maxNotifiersPerUser));
+        }
         
         Notifier notifier = new Notifier();
         notifier.setUser(user);
@@ -122,6 +135,24 @@ public class NotifierService {
         
         notifierRepository.delete(notifier);
         log.info("Notifier deleted successfully: {}", notifierId);
+    }
+    
+    /**
+     * Get notifier limit information for a user
+     * @param userId User ID
+     * @return Map with current count, max limit, and remaining slots
+     */
+    @Transactional(readOnly = true)
+    public java.util.Map<String, Object> getNotifierLimitInfo(Long userId) {
+        long currentCount = notifierRepository.countByUserId(userId);
+        long remaining = Math.max(0, maxNotifiersPerUser - currentCount);
+        
+        return java.util.Map.of(
+                "current", currentCount,
+                "max", maxNotifiersPerUser,
+                "remaining", remaining,
+                "canCreateMore", remaining > 0
+        );
     }
 }
 

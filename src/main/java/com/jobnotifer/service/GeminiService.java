@@ -41,7 +41,6 @@ public class GeminiService {
         try {
             String prompt = buildPrompt(jobPosting, notifier);
             
-            // Build Gemini API request
             Map<String, Object> requestBody = new HashMap<>();
             
             Map<String, Object> content = new HashMap<>();
@@ -51,7 +50,6 @@ public class GeminiService {
             
             requestBody.put("contents", List.of(content));
             
-            // Add generation config for JSON response
             Map<String, Object> generationConfig = new HashMap<>();
             generationConfig.put("temperature", 0.3);
             generationConfig.put("maxOutputTokens", 800);
@@ -59,7 +57,6 @@ public class GeminiService {
             
             log.debug("Calling Gemini API with model: {}", model);
             
-            // Call Gemini API
             String response = webClient.post()
                     .uri(uriBuilder -> uriBuilder
                             .path("/v1beta/models/" + model + ":generateContent")
@@ -72,7 +69,6 @@ public class GeminiService {
             
             log.debug("Gemini API response: {}", response);
             
-            // Parse Gemini response
             JsonNode responseNode = objectMapper.readTree(response);
             String generatedText = responseNode
                     .path("candidates").get(0)
@@ -82,18 +78,14 @@ public class GeminiService {
             
             log.debug("Generated text: {}", generatedText);
             
-            // Extract JSON from the response (may have markdown formatting)
             String jsonText = extractJsonFromResponse(generatedText);
             
-            // Parse the job analysis JSON
             JsonNode jsonNode = objectMapper.readTree(jsonText);
             Map<String, Object> result = new HashMap<>();
             
-            // Relevance data
             result.put("score", jsonNode.has("score") ? jsonNode.get("score").asDouble() : 0.0);
             result.put("reason", jsonNode.has("reason") ? jsonNode.get("reason").asText() : "No reason provided");
             
-            // Extracted job fields
             result.put("company", jsonNode.has("company") ? jsonNode.get("company").asText() : "Unknown");
             result.put("experience", jsonNode.has("experience") ? jsonNode.get("experience").asText() : "Not specified");
             result.put("location", jsonNode.has("location") ? jsonNode.get("location").asText() : "Not specified");
@@ -105,7 +97,6 @@ public class GeminiService {
             
         } catch (Exception e) {
             log.error("Error analyzing job relevance with Gemini AI", e);
-            // Return default values on error
             Map<String, Object> result = new HashMap<>();
             result.put("score", 0.0);
             result.put("reason", "Error processing with AI: " + e.getMessage());
@@ -119,7 +110,6 @@ public class GeminiService {
     }
     
     private String extractJsonFromResponse(String text) {
-        // Remove markdown code blocks if present
         text = text.trim();
         
         if (text.startsWith("```json")) {

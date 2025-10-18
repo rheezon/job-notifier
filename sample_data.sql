@@ -94,7 +94,6 @@ CREATE TABLE scheduler_state (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     scheduler_name VARCHAR(255) NOT NULL UNIQUE,
     current_run INT NOT NULL DEFAULT 0,
-    max_runs INT NOT NULL,
     last_run_timestamp TIMESTAMP NOT NULL,
     enabled BOOLEAN NOT NULL DEFAULT TRUE,
     INDEX idx_scheduler_name (scheduler_name)

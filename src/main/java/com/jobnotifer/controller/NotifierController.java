@@ -59,5 +59,12 @@ public class NotifierController {
         notifierService.deleteNotifier(currentUser.getId(), id);
         return ResponseEntity.ok(new ApiResponse(true, "Notifier deleted successfully"));
     }
+    
+    @GetMapping("/limit-info")
+    public ResponseEntity<java.util.Map<String, Object>> getNotifierLimitInfo(
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        java.util.Map<String, Object> limitInfo = notifierService.getNotifierLimitInfo(currentUser.getId());
+        return ResponseEntity.ok(limitInfo);
+    }
 }
 

@@ -127,7 +127,44 @@ curl -X PUT http://localhost:8080/api/notifiers/1 \
   }'
 ```
 
-### 7. Get Notifications for Notifier
+### 7. Get Notifier Limit Information
+
+Check how many notifiers the user has created and how many more they can create.
+
+```bash
+curl -X GET http://localhost:8080/api/notifiers/limit-info \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**Response:**
+```json
+{
+  "current": 2,
+  "max": 5,
+  "remaining": 3,
+  "canCreateMore": true
+}
+```
+
+**Response Fields:**
+- `current`: Number of notifiers currently created by the user
+- `max`: Maximum number of notifiers allowed per user (configurable via `notifier.max-per-user`)
+- `remaining`: Number of notifiers the user can still create
+- `canCreateMore`: Boolean indicating if the user can create more notifiers
+
+**Note:** If a user tries to create more notifiers than the limit allows, the API will return an error:
+
+```json
+{
+  "timestamp": "2025-10-18T03:30:00.000+00:00",
+  "status": 500,
+  "error": "Internal Server Error",
+  "message": "Maximum notifier limit reached. You can only create up to 5 notifiers.",
+  "path": "/api/notifiers"
+}
+```
+
+### 8. Get Notifications for Notifier
 
 ```bash
 curl -X GET http://localhost:8080/api/notifications/notifier/1 \
@@ -174,14 +211,14 @@ curl -X GET http://localhost:8080/api/notifications/notifier/1 \
 ]
 ```
 
-### 8. Mark Notification as Viewed
+### 9. Mark Notification as Viewed
 
 ```bash
 curl -X PUT http://localhost:8080/api/notifications/1/viewed \
   -H "Authorization: Bearer $TOKEN"
 ```
 
-### 9. Delete Notifier
+### 10. Delete Notifier
 
 ```bash
 curl -X DELETE http://localhost:8080/api/notifiers/1 \
