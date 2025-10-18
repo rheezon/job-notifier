@@ -90,10 +90,10 @@
 			<version>1.33.0</version>
 		</dependency>
 		
+		<!-- Google Gemini API (using REST client) -->
 		<dependency>
-			<groupId>com.theokanning.openai-gpt3-java</groupId>
-			<artifactId>service</artifactId>
-			<version>0.18.2</version>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-webflux</artifactId>
 		</dependency>
 
 		<dependency>

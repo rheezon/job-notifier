@@ -1,0 +1,149 @@
+package com.jobnotifer.service;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.jobnotifer.entity.Notifier;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.stereotype.Service;
+import org.springframework.web.reactive.function.client.WebClient;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+@Service
+@Slf4j
+public class GeminiService {
+    
+    @Value("${gemini.api.key}")
+    private String apiKey;
+    
+    @Value("${gemini.model}")
+    private String model;
+    
+    @Value("${ai.prompt.template}")
+    private String promptTemplate;
+    
+    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final WebClient webClient;
+    
+    public GeminiService() {
+        this.webClient = WebClient.builder()
+                .baseUrl("https://generativelanguage.googleapis.com")
+                .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                .build();
+    }
+    
+    public Map<String, Object> analyzeJobRelevance(String jobPosting, Notifier notifier) {
+        try {
+            String prompt = buildPrompt(jobPosting, notifier);
+            
+            // Build Gemini API request
+            Map<String, Object> requestBody = new HashMap<>();
+            
+            Map<String, Object> content = new HashMap<>();
+            Map<String, String> part = new HashMap<>();
+            part.put("text", prompt);
+            content.put("parts", List.of(part));
+            
+            requestBody.put("contents", List.of(content));
+            
+            // Add generation config for JSON response
+            Map<String, Object> generationConfig = new HashMap<>();
+            generationConfig.put("temperature", 0.3);
+            generationConfig.put("maxOutputTokens", 800);
+            requestBody.put("generationConfig", generationConfig);
+            
+            log.debug("Calling Gemini API with model: {}", model);
+            
+            // Call Gemini API
+            String response = webClient.post()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/v1beta/models/" + model + ":generateContent")
+                            .queryParam("key", apiKey)
+                            .build())
+                    .bodyValue(requestBody)
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .block();
+            
+            log.debug("Gemini API response: {}", response);
+            
+            // Parse Gemini response
+            JsonNode responseNode = objectMapper.readTree(response);
+            String generatedText = responseNode
+                    .path("candidates").get(0)
+                    .path("content")
+                    .path("parts").get(0)
+                    .path("text").asText();
+            
+            log.debug("Generated text: {}", generatedText);
+            
+            // Extract JSON from the response (may have markdown formatting)
+            String jsonText = extractJsonFromResponse(generatedText);
+            
+            // Parse the job analysis JSON
+            JsonNode jsonNode = objectMapper.readTree(jsonText);
+            Map<String, Object> result = new HashMap<>();
+            
+            // Relevance data
+            result.put("score", jsonNode.has("score") ? jsonNode.get("score").asDouble() : 0.0);
+            result.put("reason", jsonNode.has("reason") ? jsonNode.get("reason").asText() : "No reason provided");
+            
+            // Extracted job fields
+            result.put("company", jsonNode.has("company") ? jsonNode.get("company").asText() : "Unknown");
+            result.put("experience", jsonNode.has("experience") ? jsonNode.get("experience").asText() : "Not specified");
+            result.put("location", jsonNode.has("location") ? jsonNode.get("location").asText() : "Not specified");
+            result.put("salary", jsonNode.has("salary") ? jsonNode.get("salary").asText() : "Not specified");
+            result.put("description", jsonNode.has("description") ? jsonNode.get("description").asText() : jobPosting);
+            
+            log.info("AI Analysis completed. Score: {}, Company: {}", result.get("score"), result.get("company"));
+            return result;
+            
+        } catch (Exception e) {
+            log.error("Error analyzing job relevance with Gemini AI", e);
+            // Return default values on error
+            Map<String, Object> result = new HashMap<>();
+            result.put("score", 0.0);
+            result.put("reason", "Error processing with AI: " + e.getMessage());
+            result.put("company", "Unknown");
+            result.put("experience", "Not specified");
+            result.put("location", "Not specified");
+            result.put("salary", "Not specified");
+            result.put("description", jobPosting);
+            return result;
+        }
+    }
+    
+    private String extractJsonFromResponse(String text) {
+        // Remove markdown code blocks if present
+        text = text.trim();
+        
+        if (text.startsWith("```json")) {
+            text = text.substring(7);
+        } else if (text.startsWith("```")) {
+            text = text.substring(3);
+        }
+        
+        if (text.endsWith("```")) {
+            text = text.substring(0, text.length() - 3);
+        }
+        
+        return text.trim();
+    }
+    
+    private String buildPrompt(String jobPosting, Notifier notifier) {
+        return promptTemplate
+                .replace("{job}", jobPosting)
+                .replace("{city}", notifier.getCity() != null ? notifier.getCity() : "Any")
+                .replace("{salary}", notifier.getSalaryExpectation() != null ? notifier.getSalaryExpectation() : "Any")
+                .replace("{companies}", notifier.getCompaniesPreference() != null ? notifier.getCompaniesPreference() : "Any")
+                .replace("{experience}", notifier.getExperience() != null ? notifier.getExperience() : "Any")
+                .replace("{noticePeriod}", notifier.getNoticePeriod() != null ? notifier.getNoticePeriod() : "Any")
+                .replace("{college}", notifier.getCollege() != null ? notifier.getCollege() : "Any");
+    }
+}
+

@@ -35,21 +35,27 @@ public class CloudinaryService {
         ));
     }
     
-    public String uploadPdf(File pdfFile, String fileName) {
+    /**
+     * Upload PDF from byte array directly without creating temporary file
+     * @param pdfBytes PDF content as byte array
+     * @param fileName Desired file name
+     * @return Cloudinary URL or null if upload fails
+     */
+    public String uploadPdfFromBytes(byte[] pdfBytes, String fileName) {
         try {
             @SuppressWarnings("unchecked")
-            Map<String, Object> uploadResult = cloudinary.uploader().upload(pdfFile, ObjectUtils.asMap(
+            Map<String, Object> uploadResult = cloudinary.uploader().upload(pdfBytes, ObjectUtils.asMap(
                     "resource_type", "raw",
                     "public_id", "resumes/" + fileName,
                     "format", "pdf"
             ));
             
             String url = (String) uploadResult.get("secure_url");
-            log.info("PDF uploaded to Cloudinary: {}", url);
+            log.info("PDF uploaded to Cloudinary from bytes: {} ({} bytes)", url, pdfBytes.length);
             return url;
             
         } catch (IOException e) {
-            log.error("Error uploading PDF to Cloudinary", e);
+            log.error("Error uploading PDF bytes to Cloudinary", e);
             return null;
         }
     }

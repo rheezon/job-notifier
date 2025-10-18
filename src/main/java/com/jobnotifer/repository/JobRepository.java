@@ -13,7 +13,7 @@ import java.util.List;
 public interface JobRepository extends JpaRepository<Job, Long> {
     List<Job> findByProcessedFalseAndTimestampBetween(LocalDateTime start, LocalDateTime end);
     
-    @Query("SELECT j FROM Job j WHERE j.processed = false AND j.timestamp BETWEEN :start AND :end ORDER BY j.timestamp ASC")
+    @Query("SELECT j FROM Job j WHERE j.processed = false AND j.timestamp >= :start AND j.timestamp <= :end ORDER BY j.timestamp ASC")
     List<Job> findUnprocessedJobsInTimeWindow(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 }
 

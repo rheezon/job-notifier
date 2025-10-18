@@ -1,7 +1,5 @@
 package com.jobnotifer.service;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jobnotifer.entity.Job;
 import com.jobnotifer.entity.Notification;
 import com.jobnotifer.entity.Notifier;
@@ -17,7 +15,6 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.io.File;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -32,7 +29,7 @@ public class JobProcessingService {
     private final NotifierRepository notifierRepository;
     private final NotificationRepository notificationRepository;
     private final SchedulerStateRepository schedulerStateRepository;
-    private final OpenAIService openAIService;
+    private final GeminiService geminiService;
     private final LatexCompilerService latexCompilerService;
     private final CloudinaryService cloudinaryService;
     
@@ -69,47 +66,50 @@ public class JobProcessingService {
         
         log.info("Starting scheduler run {} of {}", schedulerState.getCurrentRun() + 1, schedulerState.getMaxRuns());
         log.info("Processing jobs from {} to {}", startWindow, endWindow);
+        log.info("DEBUG: Start window = {}, End window = {}", startWindow, endWindow);
         
-        // Fetch unprocessed jobs in the time window
         List<Job> jobs = jobRepository.findUnprocessedJobsInTimeWindow(startWindow, endWindow);
         log.info("Found {} unprocessed jobs", jobs.size());
         
-        // Get all active notifiers
+        List<Job> allUnprocessed = jobRepository.findAll().stream()
+            .filter(j -> !j.getProcessed())
+            .toList();
+        log.info("DEBUG: Total unprocessed jobs in DB: {}", allUnprocessed.size());
+        for (Job j : allUnprocessed) {
+            log.info("DEBUG: Job {} - timestamp: {}, processed: {}", j.getId(), j.getTimestamp(), j.getProcessed());
+        }
+        
         List<Notifier> notifiers = notifierRepository.findAll();
         log.info("Processing jobs for {} notifiers", notifiers.size());
         
         int processedJobsCount = 0;
-        int relevantJobsCount = 0;
+        int totalAiCalls = 0;
         
-        // Process each job
         for (Job job : jobs) {
             for (Notifier notifier : notifiers) {
                 try {
                     processJobForNotifier(job, notifier, schedulerState.getCurrentRun() + 1);
-                    relevantJobsCount++;
+                    totalAiCalls++;
                 } catch (Exception e) {
                     log.error("Error processing job {} for notifier {}", job.getId(), notifier.getId(), e);
                 }
             }
             
-            // Mark job as processed
             job.setProcessed(true);
             jobRepository.save(job);
             processedJobsCount++;
         }
         
-        // Update scheduler state
         schedulerState.setCurrentRun(schedulerState.getCurrentRun() + 1);
         schedulerState.setLastRunTimestamp(currentTime);
         schedulerStateRepository.save(schedulerState);
         
-        log.info("Scheduler run completed. Processed {} jobs, found {} relevant matches", 
-                processedJobsCount, relevantJobsCount);
+        log.info("Scheduler run completed. Processed {} jobs, found {} ai calls", 
+                processedJobsCount, totalAiCalls);
     }
     
     private void processJobForNotifier(Job job, Notifier notifier, int schedulerRun) {
-        // Use AI to analyze job relevance
-        Map<String, Object> analysisResult = openAIService.analyzeJobRelevance(job.getJob(), notifier);
+        Map<String, Object> analysisResult = geminiService.analyzeJobRelevance(job.getJob(), notifier);
         
         double relevanceScore = (double) analysisResult.get("score");
         String relevanceReason = (String) analysisResult.get("reason");
@@ -119,14 +119,16 @@ public class JobProcessingService {
         if (relevanceScore >= relevanceThreshold) {
             log.info("Job {} is relevant for notifier {} (score: {})", job.getId(), notifier.getId(), relevanceScore);
             
-            // Generate resume if latex is provided
             String resumeLink = null;
             if (notifier.getResumeLatex() != null && !notifier.getResumeLatex().isEmpty()) {
                 resumeLink = generateAndUploadResume(notifier, job);
             }
             
-            // Parse job details
-            Map<String, String> jobDetails = parseJobDetails(job.getJob());
+            String company = (String) analysisResult.get("company");
+            String experience = (String) analysisResult.get("experience");
+            String location = (String) analysisResult.get("location");
+            String salary = (String) analysisResult.get("salary");
+            String description = (String) analysisResult.get("description");
             
             // Create notification
             Notification notification = new Notification();
@@ -134,41 +136,41 @@ public class JobProcessingService {
             notification.setTimestamp(job.getTimestamp());
             notification.setSchedulerRun(schedulerRun);
             notification.setResumeLink(resumeLink);
-            notification.setCompanyName(jobDetails.getOrDefault("company", "Unknown"));
-            notification.setExperience(jobDetails.getOrDefault("experience", "Not specified"));
-            notification.setLocation(jobDetails.getOrDefault("location", "Not specified"));
-            notification.setSalary(jobDetails.getOrDefault("salary", "Not specified"));
-            notification.setJobDescription(jobDetails.getOrDefault("description", job.getJob()));
+            notification.setCompanyName(company);
+            notification.setExperience(experience);
+            notification.setLocation(location);
+            notification.setSalary(salary);
+            notification.setJobDescription(description);
             notification.setRelevanceScore(relevanceScore);
             notification.setRelevanceReason(relevanceReason);
             notification.setOriginalJobPosting(job.getJob());
             notification.setViewed(false);
             
             notificationRepository.save(notification);
-            log.info("Notification created for notifier {}", notifier.getId());
+            log.info("Notification created for notifier {} - Company: {}", notifier.getId(), company);
         }
     }
     
     private String generateAndUploadResume(Notifier notifier, Job job) {
         try {
-            // Compile LaTeX to PDF
-            File pdfFile = latexCompilerService.compileToPdf(notifier.getResumeLatex());
+            // Compile LaTeX to PDF bytes (no temporary file created)
+            byte[] pdfBytes = latexCompilerService.compileToPdf(notifier.getResumeLatex());
             
-            if (pdfFile == null) {
+            if (pdfBytes == null) {
                 log.error("Failed to compile LaTeX for notifier {}", notifier.getId());
                 return null;
             }
             
-            // Upload to Cloudinary
+            // Upload to Cloudinary directly from bytes
             String fileName = String.format("resume_%s_%s_%s", 
                     notifier.getId(), 
                     job.getId(), 
                     UUID.randomUUID().toString().substring(0, 8));
             
-            String url = cloudinaryService.uploadPdf(pdfFile, fileName);
+            String url = cloudinaryService.uploadPdfFromBytes(pdfBytes, fileName);
             
-            // Clean up temporary file
-            pdfFile.delete();
+            log.info("Resume compiled and uploaded successfully for notifier {} ({} bytes)", 
+                    notifier.getId(), pdfBytes.length);
             
             return url;
             
@@ -176,41 +178,6 @@ public class JobProcessingService {
             log.error("Error generating and uploading resume", e);
             return null;
         }
-    }
-    
-    private Map<String, String> parseJobDetails(String jobPosting) {
-        // Simple parsing - in production, you might want to use AI for this too
-        Map<String, String> details = new java.util.HashMap<>();
-        
-        try {
-            // Try to parse as JSON first
-            ObjectMapper mapper = new ObjectMapper();
-            JsonNode jsonNode = mapper.readTree(jobPosting);
-            
-            if (jsonNode.has("company")) details.put("company", jsonNode.get("company").asText());
-            if (jsonNode.has("experience")) details.put("experience", jsonNode.get("experience").asText());
-            if (jsonNode.has("location")) details.put("location", jsonNode.get("location").asText());
-            if (jsonNode.has("salary")) details.put("salary", jsonNode.get("salary").asText());
-            if (jsonNode.has("description")) details.put("description", jsonNode.get("description").asText());
-            
-        } catch (Exception e) {
-            // If not JSON, extract from text
-            String[] lines = jobPosting.split("\n");
-            for (String line : lines) {
-                String lowerLine = line.toLowerCase();
-                if (lowerLine.contains("company:")) {
-                    details.put("company", line.substring(line.indexOf(":") + 1).trim());
-                } else if (lowerLine.contains("experience:")) {
-                    details.put("experience", line.substring(line.indexOf(":") + 1).trim());
-                } else if (lowerLine.contains("location:")) {
-                    details.put("location", line.substring(line.indexOf(":") + 1).trim());
-                } else if (lowerLine.contains("salary:")) {
-                    details.put("salary", line.substring(line.indexOf(":") + 1).trim());
-                }
-            }
-        }
-        
-        return details;
     }
     
     private SchedulerState getOrCreateSchedulerState() {
