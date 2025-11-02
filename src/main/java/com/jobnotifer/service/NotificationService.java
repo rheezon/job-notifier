@@ -54,5 +54,19 @@ public class NotificationService {
         
         return NotificationResponse.fromEntity(updated);
     }
+    
+    @Transactional
+    public void deleteNotification(Long userId, Long notificationId) {
+        Notification notification = notificationRepository.findById(notificationId)
+                .orElseThrow(() -> new RuntimeException("Notification not found"));
+        
+        if (!notification.getNotifier().getUser().getId().equals(userId)) {
+            throw new RuntimeException("Unauthorized access to notification");
+        }
+        
+        notificationRepository.deleteById(notificationId);
+        
+        log.info("Notification deleted: {} by user: {}", notificationId, userId);
+    }
 }
 

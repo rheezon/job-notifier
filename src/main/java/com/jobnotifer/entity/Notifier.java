@@ -29,6 +29,8 @@ public class Notifier {
     @Column(nullable = false)
     private String name;
     
+    private String role;
+    
     private String city;
     
     private String salaryExpectation;
@@ -40,13 +42,23 @@ public class Notifier {
     
     private String noticePeriod;
     
-    private String college;
+    @Column(length = 2000)
+    private String skills;
     
     @Column(length = 10000)
     private String resumeLatex;
     
+    @Column(length = 500)
+    private String latexResumePdfUrl;
+    
     @Column(length = 1000)
     private String additionalPreferences;
+    
+    @Column(nullable = false)
+    private Boolean isDraft = false;
+    
+    @Column(nullable = false)
+    private Boolean isActive = false;
     
     @OneToMany(mappedBy = "notifier", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Notification> notifications = new ArrayList<>();

@@ -59,15 +59,87 @@ public class CloudinaryService {
         }
     }
     
+    /**
+
+    * Delete PDF by its public_id
+     * @param publicId The Cloudinary public_id
+     * @return true if deleted successfully, false otherwise
+     */
     public boolean deletePdf(String publicId) {
         try {
             @SuppressWarnings("unchecked")
             Map<String, Object> result = cloudinary.uploader().destroy(publicId, ObjectUtils.asMap("resource_type", "raw"));
-            log.info("PDF deleted from Cloudinary: {}", publicId);
-            return "ok".equals(result.get("result"));
+            
+            String resultStatus = (String) result.get("result");
+            
+            if ("ok".equals(resultStatus)) {
+                log.info("PDF deleted successfully from Cloudinary: {}", publicId);
+                return true;
+            } else if ("not found".equals(resultStatus)) {
+                // File doesn't exist - nothing to delete, so we can consider this successful
+                log.info("PDF not found in Cloudinary (already deleted or never existed): {}", publicId);
+                return true;
+            } else {
+                log.warn("PDF deletion returned unexpected status '{}' for publicId: {}. Full response: {}", 
+                        resultStatus, publicId, result);
+                return false;
+            }
         } catch (IOException e) {
-            log.error("Error deleting PDF from Cloudinary", e);
+            log.error("Error deleting PDF from Cloudinary: {}", publicId, e);
             return false;
+        }
+    }
+    
+    /**
+     * Delete PDF by its Cloudinary URL
+     * @param pdfUrl Full Cloudinary URL
+     * @return true if deleted successfully, false otherwise
+     */
+    public boolean deletePdfByUrl(String pdfUrl) {
+        if (pdfUrl == null || pdfUrl.trim().isEmpty()) {
+            log.warn("Cannot delete PDF: URL is null or empty");
+            return false;
+        }
+        
+        try {
+            String publicId = extractPublicIdFromUrl(pdfUrl);
+            if (publicId == null) {
+                log.error("Could not extract public_id from URL: {}", pdfUrl);
+                return false;
+            }
+            
+            return deletePdf(publicId);
+        } catch (Exception e) {
+            log.error("Error deleting PDF by URL: {}", pdfUrl, e);
+            return false;
+        }
+    }
+    
+    /**
+     * Extract public_id from Cloudinary URL
+     */
+    private String extractPublicIdFromUrl(String url) {
+        try {
+            if (!url.contains("/upload/")) {
+                return null;
+            }
+            
+            String afterUpload = url.substring(url.indexOf("/upload/") + 8);
+            
+            if (afterUpload.startsWith("v")) {
+                int slashIndex = afterUpload.indexOf("/");
+                if (slashIndex > 0) {
+                    afterUpload = afterUpload.substring(slashIndex + 1);
+                }
+            }
+            
+            String publicId = afterUpload.replaceFirst("\\.pdf$", "");
+            log.debug("Extracted public_id '{}' from URL '{}'", publicId, url);
+            return publicId;
+            
+        } catch (Exception e) {
+            log.error("Error extracting public_id from URL: {}", url, e);
+            return null;
         }
     }
 }

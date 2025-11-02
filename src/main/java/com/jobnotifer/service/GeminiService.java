@@ -37,9 +37,9 @@ public class GeminiService {
                 .build();
     }
     
-    public Map<String, Object> analyzeJobRelevance(String jobPosting, Notifier notifier) {
+    public Map<String, Object> analyzeJobRelevance(String jobPosting, Notifier notifier, String educationInfo) {
         try {
-            String prompt = buildPrompt(jobPosting, notifier);
+            String prompt = buildPrompt(jobPosting, notifier, educationInfo);
             
             Map<String, Object> requestBody = new HashMap<>();
             
@@ -87,13 +87,19 @@ public class GeminiService {
             result.put("reason", jsonNode.has("reason") ? jsonNode.get("reason").asText() : "No reason provided");
             
             result.put("company", jsonNode.has("company") ? jsonNode.get("company").asText() : "Unknown");
+            result.put("role", jsonNode.has("role") ? (jsonNode.get("role").isNull() ? null : jsonNode.get("role").asText()) : "Not specified");
             result.put("experience", jsonNode.has("experience") ? jsonNode.get("experience").asText() : "Not specified");
             result.put("location", jsonNode.has("location") ? jsonNode.get("location").asText() : "Not specified");
             result.put("salary", jsonNode.has("salary") ? jsonNode.get("salary").asText() : "Not specified");
+            result.put("batch", jsonNode.has("batch") ? (jsonNode.get("batch").isNull() ? null : jsonNode.get("batch").asText()) : null);
+            result.put("jobType", jsonNode.has("jobType") ? jsonNode.get("jobType").asText() : "Full-Time");
+            result.put("deadline", jsonNode.has("deadline") ? (jsonNode.get("deadline").isNull() ? null : jsonNode.get("deadline").asText()) : null);
+            result.put("duration", jsonNode.has("duration") ? (jsonNode.get("duration").isNull() ? null : jsonNode.get("duration").asText()) : null);
             result.put("description", jsonNode.has("description") ? jsonNode.get("description").asText() : jobPosting);
-            result.put("jobLink", jsonNode.has("jobLink") ? jsonNode.get("jobLink").asText() : null);
+            result.put("jobLink", jsonNode.has("jobLink") ? (jsonNode.get("jobLink").isNull() ? null : jsonNode.get("jobLink").asText()) : null);
             
-            log.info("AI Analysis completed. Score: {}, Company: {}", result.get("score"), result.get("company"));
+            log.info("AI Analysis completed. Score: {}, Company: {}, Role: {}, JobType: {}", 
+                    result.get("score"), result.get("company"), result.get("role"), result.get("jobType"));
             return result;
             
         } catch (Exception e) {
@@ -102,9 +108,14 @@ public class GeminiService {
             result.put("score", 0.0);
             result.put("reason", "Error processing with AI: " + e.getMessage());
             result.put("company", "Unknown");
+            result.put("role", "Not specified");
             result.put("experience", "Not specified");
             result.put("location", "Not specified");
             result.put("salary", "Not specified");
+            result.put("batch", null);
+            result.put("jobType", "Full-Time");
+            result.put("deadline", null);
+            result.put("duration", null);
             result.put("description", jobPosting);
             result.put("jobLink", null);
             return result;
@@ -127,15 +138,17 @@ public class GeminiService {
         return text.trim();
     }
     
-    private String buildPrompt(String jobPosting, Notifier notifier) {
+    private String buildPrompt(String jobPosting, Notifier notifier, String educationInfo) {
         return promptTemplate
                 .replace("{job}", jobPosting)
+                .replace("{role}", notifier.getRole() != null ? notifier.getRole() : "Any")
+                .replace("{skills}", notifier.getSkills() != null ? notifier.getSkills() : "Any")
                 .replace("{city}", notifier.getCity() != null ? notifier.getCity() : "Any")
                 .replace("{salary}", notifier.getSalaryExpectation() != null ? notifier.getSalaryExpectation() : "Any")
                 .replace("{companies}", notifier.getCompaniesPreference() != null ? notifier.getCompaniesPreference() : "Any")
                 .replace("{experience}", notifier.getExperience() != null ? notifier.getExperience() : "Any")
                 .replace("{noticePeriod}", notifier.getNoticePeriod() != null ? notifier.getNoticePeriod() : "Any")
-                .replace("{college}", notifier.getCollege() != null ? notifier.getCollege() : "Any");
+                .replace("{education}", educationInfo != null && !educationInfo.isEmpty() ? educationInfo : "Not specified");
     }
 }
 

@@ -3,6 +3,7 @@ package com.jobnotifer.controller;
 import com.jobnotifer.dto.ApiResponse;
 import com.jobnotifer.dto.NotifierRequest;
 import com.jobnotifer.dto.NotifierResponse;
+import com.jobnotifer.dto.ResumeUpdateRequest;
 import com.jobnotifer.security.UserPrincipal;
 import com.jobnotifer.service.NotifierService;
 import jakarta.validation.Valid;
@@ -65,6 +66,24 @@ public class NotifierController {
             @AuthenticationPrincipal UserPrincipal currentUser) {
         java.util.Map<String, Object> limitInfo = notifierService.getNotifierLimitInfo(currentUser.getId());
         return ResponseEntity.ok(limitInfo);
+    }
+    
+    @PatchMapping("/{id}/toggle-active")
+    public ResponseEntity<NotifierResponse> toggleNotifierActive(
+            @AuthenticationPrincipal UserPrincipal currentUser,
+            @PathVariable Long id) {
+        NotifierResponse response = notifierService.toggleNotifierActive(currentUser.getId(), id);
+        return ResponseEntity.ok(response);
+    }
+    
+    @PatchMapping("/{id}/resume")
+    public ResponseEntity<NotifierResponse> updateNotifierResume(
+            @AuthenticationPrincipal UserPrincipal currentUser,
+            @PathVariable Long id,
+            @Valid @RequestBody ResumeUpdateRequest request) {
+        NotifierResponse response = notifierService.updateNotifierResume(
+                currentUser.getId(), id, request.getResumeLatex());
+        return ResponseEntity.ok(response);
     }
 }
 

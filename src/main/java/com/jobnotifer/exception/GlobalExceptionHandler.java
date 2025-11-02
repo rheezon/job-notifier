@@ -37,6 +37,13 @@ public class GlobalExceptionHandler {
                 .body(new ApiResponse(false, "Invalid email or password"));
     }
     
+    @ExceptionHandler(UserNotFoundException.class)
+    public ResponseEntity<ApiResponse> handleUserNotFoundException(UserNotFoundException ex) {
+        return ResponseEntity
+                .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(new ApiResponse(false, ex.getMessage()));
+    }
+    
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, Object>> handleValidationExceptions(MethodArgumentNotValidException ex) {
         Map<String, Object> errors = new HashMap<>();

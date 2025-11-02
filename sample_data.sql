@@ -19,6 +19,8 @@ USE job_notifier_db;
 -- =================================================================
 
 -- Drop tables if they exist (for clean setup)
+DROP TABLE IF EXISTS user_info;
+DROP TABLE IF EXISTS password_reset_tokens;
 DROP TABLE IF EXISTS notifications;
 DROP TABLE IF EXISTS notifiers;
 DROP TABLE IF EXISTS users;
@@ -36,29 +38,65 @@ CREATE TABLE users (
     INDEX idx_email (email)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Password Reset Tokens Table
+CREATE TABLE password_reset_tokens (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    token VARCHAR(100) NOT NULL UNIQUE,
+    user_id BIGINT NOT NULL,
+    expiry_date TIMESTAMP NOT NULL,
+    used BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_token (token),
+    INDEX idx_user_id (user_id),
+    INDEX idx_expiry_date (expiry_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- User Info Table
+CREATE TABLE user_info (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    degree_name VARCHAR(255) NOT NULL,
+    college_type VARCHAR(50) NOT NULL,
+    batch_passout INT NOT NULL,
+    major VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_user_id (user_id),
+    INDEX idx_batch_passout (batch_passout)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Notifiers Table
 CREATE TABLE notifiers (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     user_id BIGINT NOT NULL,
     name VARCHAR(255) NOT NULL,
+    role VARCHAR(255),
     city VARCHAR(255),
     salary_expectation VARCHAR(255),
     companies_preference VARCHAR(1000),
     experience VARCHAR(255),
     notice_period VARCHAR(255),
-    college VARCHAR(255),
+    skills VARCHAR(2000),
     resume_latex TEXT,
+    latex_resume_pdf_url VARCHAR(500),
     additional_preferences VARCHAR(1000),
+    is_draft BOOLEAN NOT NULL DEFAULT FALSE,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    INDEX idx_user_id (user_id)
+    INDEX idx_user_id (user_id),
+    INDEX idx_user_is_active (user_id, is_active),
+    INDEX idx_is_draft (is_draft)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Jobs Table (populated by external Telegram module)
 CREATE TABLE jobs (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    timestamp TIMESTAMP NOT NULL,
+    timestamp TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    job_timestamp TIMESTAMP,
     job VARCHAR(5000) NOT NULL,
     processed BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -75,9 +113,14 @@ CREATE TABLE notifications (
     resume_link VARCHAR(1000),
     job_link VARCHAR(1000),
     company_name VARCHAR(255) NOT NULL,
+    role VARCHAR(255),
     experience VARCHAR(255),
     location VARCHAR(255),
     salary VARCHAR(255),
+    batch VARCHAR(100),
+    job_type VARCHAR(100),
+    deadline VARCHAR(255),
+    duration VARCHAR(255),
     job_description TEXT,
     relevance_score DOUBLE NOT NULL,
     relevance_reason VARCHAR(1000),
@@ -108,9 +151,14 @@ CREATE TABLE scheduler_state (
 INSERT INTO users (email, password, full_name, created_at) VALUES
 ('john.doe@example.com', '$2a$10$YourHashedPasswordHere123456789012345678901234567890123', 'John Doe', '2025-10-14 08:00:00');
 
+-- Sample User Info
+INSERT INTO user_info (user_id, degree_name, college_type, batch_passout, major, created_at, updated_at) VALUES
+(1, 'Bachelor of Science in Computer Science', 'Tier1', 2018, 'Computer Science', '2025-10-14 08:05:00', '2025-10-14 08:05:00'),
+(1, 'Master of Science in Software Engineering', 'Tier1', 2020, 'Software Engineering', '2025-10-14 08:10:00', '2025-10-14 08:10:00');
+
 -- Sample Notifiers
-INSERT INTO notifiers (user_id, name, city, salary_expectation, companies_preference, experience, notice_period, college, resume_latex, additional_preferences, created_at) VALUES
-(1, 'Senior Backend Developer Profile', 'San Francisco, CA', '150k-200k USD', 'Google, Amazon, Netflix, Microsoft, Meta, Apple', '6 years', '2 months', 'Stanford University', 
+INSERT INTO notifiers (user_id, name, role, city, salary_expectation, companies_preference, experience, notice_period, skills, resume_latex, additional_preferences, created_at) VALUES
+(1, 'Senior Backend Developer Profile', 'Senior Backend Engineer', 'San Francisco, CA', '150k-200k USD', 'Google, Amazon, Netflix, Microsoft, Meta, Apple', '6 years', '2 months', 'Java, Spring Boot, Spring Cloud, Hibernate, Microservices, REST APIs, MySQL, PostgreSQL, MongoDB, Redis, AWS, Docker, Kubernetes, Git, Maven, CI/CD', 
 '\\documentclass[11pt,a4paper,sans]{moderncv}
 \\moderncvstyle{banking}
 \\moderncvcolor{blue}
@@ -164,7 +212,7 @@ Senior Backend Engineer with 6+ years of experience in building scalable distrib
 'Prefer remote or hybrid work options. Interested in fintech and cloud infrastructure roles. Open to relocation for the right opportunity. Passionate about system design and scalability challenges.', 
 '2025-10-14 08:30:00'),
 
-(1, 'Full Stack Engineer Profile', 'Seattle, WA', '130k-170k USD', 'Amazon, Microsoft, Salesforce', '4 years', '1 month', 'MIT', 
+(1, 'Full Stack Engineer Profile', 'Full Stack Developer', 'Seattle, WA', '130k-170k USD', 'Amazon, Microsoft, Salesforce', '4 years', '1 month', 'JavaScript, TypeScript, React, Node.js, Express, Java, Python, HTML/CSS, MongoDB, PostgreSQL, REST APIs, GraphQL, AWS, Docker, Git, Webpack, Jest', 
 '\\documentclass[11pt,a4paper,sans]{moderncv}
 \\moderncvstyle{classic}
 \\moderncvcolor{green}

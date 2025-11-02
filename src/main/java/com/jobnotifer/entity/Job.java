@@ -21,6 +21,9 @@ public class Job {
     @Column(nullable = false)
     private LocalDateTime timestamp;
     
+    @Column(name = "job_timestamp")
+    private LocalDateTime jobTimestamp;
+    
     @Column(nullable = false, length = 5000)
     private String job;
     
@@ -29,5 +32,15 @@ public class Job {
     
     @Column(nullable = false)
     private LocalDateTime createdAt;
+    
+    @PrePersist
+    protected void onCreate() {
+        if (timestamp == null) {
+            timestamp = LocalDateTime.now();
+        }
+        if (createdAt == null) {
+            createdAt = LocalDateTime.now();
+        }
+    }
 }
 

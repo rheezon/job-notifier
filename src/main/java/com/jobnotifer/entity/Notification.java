@@ -38,11 +38,21 @@ public class Notification {
     @Column(nullable = false)
     private String companyName;
     
+    private String role;
+    
     private String experience;
     
     private String location;
     
     private String salary;
+    
+    private String batch;
+    
+    private String jobType;
+    
+    private String deadline;
+    
+    private String duration;
     
     @Column(length = 5000)
     private String jobDescription;

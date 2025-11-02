@@ -4,10 +4,12 @@ import com.jobnotifer.entity.Job;
 import com.jobnotifer.entity.Notification;
 import com.jobnotifer.entity.Notifier;
 import com.jobnotifer.entity.SchedulerState;
+import com.jobnotifer.entity.UserInfo;
 import com.jobnotifer.repository.JobRepository;
 import com.jobnotifer.repository.NotificationRepository;
 import com.jobnotifer.repository.NotifierRepository;
 import com.jobnotifer.repository.SchedulerStateRepository;
+import com.jobnotifer.repository.UserInfoRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -16,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -29,15 +32,20 @@ public class JobProcessingService {
     private final NotifierRepository notifierRepository;
     private final NotificationRepository notificationRepository;
     private final SchedulerStateRepository schedulerStateRepository;
+    private final UserInfoRepository userInfoRepository;
     private final GeminiService geminiService;
     private final LatexCompilerService latexCompilerService;
     private final CloudinaryService cloudinaryService;
+    private final EmailService emailService;
     
     @Value("${scheduler.enabled}")
     private boolean schedulerEnabled;
     
     @Value("${ai.relevance.threshold}")
     private double relevanceThreshold;
+    
+    @Value("${app.frontend.url}")
+    private String frontendUrl;
     
     @Scheduled(fixedRateString = "${scheduler.fixed-rate}")
     @Transactional
@@ -68,17 +76,28 @@ public class JobProcessingService {
             log.info("DEBUG: Job {} - timestamp: {}, processed: {}", j.getId(), j.getTimestamp(), j.getProcessed());
         }
         
-        List<Notifier> notifiers = notifierRepository.findAll();
-        log.info("Processing jobs for {} notifiers", notifiers.size());
+        // Only process jobs for active notifiers
+        List<Notifier> notifiers = notifierRepository.findAll().stream()
+                .filter(Notifier::getIsActive)
+                .toList();
+        log.info("Processing jobs for {} active notifiers", notifiers.size());
         
         int processedJobsCount = 0;
         int totalAiCalls = 0;
         
+        // Track new notifications per user
+        Map<Long, Integer> userNotificationCount = new HashMap<>();
+        
         for (Job job : jobs) {
             for (Notifier notifier : notifiers) {
                 try {
-                    processJobForNotifier(job, notifier, schedulerState.getCurrentRun() + 1);
+                    boolean notificationCreated = processJobForNotifier(job, notifier, schedulerState.getCurrentRun() + 1);
                     totalAiCalls++;
+                    
+                    if (notificationCreated) {
+                        Long userId = notifier.getUser().getId();
+                        userNotificationCount.put(userId, userNotificationCount.getOrDefault(userId, 0) + 1);
+                    }
                 } catch (Exception e) {
                     log.error("Error processing job {} for notifier {}", job.getId(), notifier.getId(), e);
                 }
@@ -93,12 +112,26 @@ public class JobProcessingService {
         schedulerState.setLastRunTimestamp(currentTime);
         schedulerStateRepository.save(schedulerState);
         
-        log.info("Scheduler run completed. Processed {} jobs, found {} ai calls", 
-                processedJobsCount, totalAiCalls);
+        // Send email notifications to users with new relevant jobs
+        for (Map.Entry<Long, Integer> entry : userNotificationCount.entrySet()) {
+            Long userId = entry.getKey();
+            Integer notificationCount = entry.getValue();
+            try {
+                sendJobNotificationEmail(userId, notificationCount);
+            } catch (Exception e) {
+                log.error("Failed to send email notification to user {}", userId, e);
+            }
+        }
+        
+        log.info("Scheduler run completed. Processed {} jobs, found {} ai calls, sent {} email notifications", 
+                processedJobsCount, totalAiCalls, userNotificationCount.size());
     }
     
-    private void processJobForNotifier(Job job, Notifier notifier, int schedulerRun) {
-        Map<String, Object> analysisResult = geminiService.analyzeJobRelevance(job.getJob(), notifier);
+    private boolean processJobForNotifier(Job job, Notifier notifier, int schedulerRun) {
+        // Fetch and format user education information
+        String educationInfo = formatEducationInfo(notifier.getUser().getId());
+        
+        Map<String, Object> analysisResult = geminiService.analyzeJobRelevance(job.getJob(), notifier, educationInfo);
         
         double relevanceScore = (double) analysisResult.get("score");
         String relevanceReason = (String) analysisResult.get("reason");
@@ -114,9 +147,14 @@ public class JobProcessingService {
             }
             
             String company = (String) analysisResult.get("company");
+            String role = (String) analysisResult.get("role");
             String experience = (String) analysisResult.get("experience");
             String location = (String) analysisResult.get("location");
             String salary = (String) analysisResult.get("salary");
+            String batch = (String) analysisResult.get("batch");
+            String jobType = (String) analysisResult.get("jobType");
+            String deadline = (String) analysisResult.get("deadline");
+            String duration = (String) analysisResult.get("duration");
             String description = (String) analysisResult.get("description");
             String jobLink = (String) analysisResult.get("jobLink");
             
@@ -127,9 +165,14 @@ public class JobProcessingService {
             notification.setResumeLink(resumeLink);
             notification.setJobLink(jobLink);
             notification.setCompanyName(company);
+            notification.setRole(role);
             notification.setExperience(experience);
             notification.setLocation(location);
             notification.setSalary(salary);
+            notification.setBatch(batch);
+            notification.setJobType(jobType);
+            notification.setDeadline(deadline);
+            notification.setDuration(duration);
             notification.setJobDescription(description);
             notification.setRelevanceScore(relevanceScore);
             notification.setRelevanceReason(relevanceReason);
@@ -138,7 +181,9 @@ public class JobProcessingService {
             
             notificationRepository.save(notification);
             log.info("Notification created for notifier {} - Company: {}", notifier.getId(), company);
+            return true;
         }
+        return false;
     }
     
     private String generateAndUploadResume(Notifier notifier, Job job) {
@@ -186,6 +231,76 @@ public class JobProcessingService {
         state.setLastRunTimestamp(LocalDateTime.now());
         schedulerStateRepository.save(state);
         log.info("Scheduler state reset");
+    }
+    
+    /**
+     * Format user's education information for AI analysis
+     */
+    private String formatEducationInfo(Long userId) {
+        List<UserInfo> educationList = userInfoRepository.findByUserIdOrderByBatchPassoutDesc(userId);
+        
+        if (educationList.isEmpty()) {
+            return "No education information provided";
+        }
+        
+        StringBuilder educationInfo = new StringBuilder();
+        for (int i = 0; i < educationList.size(); i++) {
+            UserInfo edu = educationList.get(i);
+            if (i > 0) {
+                educationInfo.append("; ");
+            }
+            educationInfo.append(edu.getDegreeName())
+                    .append(" in ").append(edu.getMajor())
+                    .append(" (").append(edu.getCollegeType())
+                    .append(", Batch ").append(edu.getBatchPassout())
+                    .append(")");
+        }
+        
+        return educationInfo.toString();
+    }
+    
+    /**
+     * Send email notification to user about new relevant jobs
+     */
+    private void sendJobNotificationEmail(Long userId, int notificationCount) {
+        try {
+            // Find notifiers for this user to get user details
+            List<Notifier> userNotifiers = notifierRepository.findByUserId(userId);
+            if (userNotifiers.isEmpty()) {
+                log.warn("No notifiers found for user {} to get email", userId);
+                return;
+            }
+            
+            String userEmail = userNotifiers.get(0).getUser().getEmail();
+            String userName = userNotifiers.get(0).getUser().getFullName();
+            
+            String dashboardLink = frontendUrl + "/dashboard";
+            
+            String subject = notificationCount == 1 ? 
+                    "New Job Match Found!" : 
+                    String.format("%d New Job Matches Found!", notificationCount);
+            
+            String message = String.format(
+                    "Hi %s,\n\n" +
+                    "Great news! We found %s relevant %s matching your preferences.\n\n" +
+                    "These jobs have been carefully analyzed and matched to your profile. " +
+                    "Don't miss out on these opportunities!\n\n" +
+                    "Visit your dashboard to view the details and apply:\n%s\n\n" +
+                    "Best regards,\n" +
+                    "Jobsease Team",
+                    userName != null ? userName : "there",
+                    notificationCount,
+                    notificationCount == 1 ? "job" : "jobs",
+                    dashboardLink
+            );
+            
+            emailService.sendEmail(userEmail, subject, message);
+            log.info("Email notification sent to user {} ({}) about {} new job(s)", userId, userEmail, notificationCount);
+            
+        } catch (Exception e) {
+            log.error("Failed to send job notification email to user {}. Job processing will continue.", userId, e);
+            // Don't throw - email failure shouldn't affect job processing
+        }
     }
 }
 

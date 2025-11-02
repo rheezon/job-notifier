@@ -33,5 +33,13 @@ public class NotificationController {
         NotificationResponse response = notificationService.markAsViewed(currentUser.getId(), id);
         return ResponseEntity.ok(response);
     }
+    
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteNotification(
+            @AuthenticationPrincipal UserPrincipal currentUser,
+            @PathVariable Long id) {
+        notificationService.deleteNotification(currentUser.getId(), id);
+        return ResponseEntity.noContent().build();
+    }
 }
 
