@@ -36,6 +36,7 @@ build/
 .DS_Store
 
 ### Application Properties with Sensitive Data ###
+src/main/resources/application.properties
 # Uncomment if you want to ignore local config
 # src/main/resources/application-local.properties
 
