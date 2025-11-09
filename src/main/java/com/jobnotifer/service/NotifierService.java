@@ -149,7 +149,7 @@ public class NotifierService {
         
         NotifierResponse response = NotifierResponse.fromEntity(updatedNotifier);
         response.setUnreadNotificationsCount(
-                notificationRepository.countByNotifierIdAndViewedFalse(notifierId)
+                notificationRepository.countByNotifierIdAndAppliedFalse(notifierId)
         );
         return response;
     }
@@ -229,7 +229,7 @@ public class NotifierService {
         
         NotifierResponse response = NotifierResponse.fromEntity(updatedNotifier);
         response.setUnreadNotificationsCount(
-                notificationRepository.countByNotifierIdAndViewedFalse(notifierId)
+                notificationRepository.countByNotifierIdAndAppliedFalse(notifierId)
         );
         return response;
     }
@@ -242,7 +242,7 @@ public class NotifierService {
                 .map(notifier -> {
                     NotifierResponse response = NotifierResponse.fromEntity(notifier);
                     response.setUnreadNotificationsCount(
-                            notificationRepository.countByNotifierIdAndViewedFalse(notifier.getId())
+                            notificationRepository.countByNotifierIdAndAppliedFalse(notifier.getId())
                     );
                     return response;
                 })
@@ -260,7 +260,7 @@ public class NotifierService {
         
         NotifierResponse response = NotifierResponse.fromEntity(notifier);
         response.setUnreadNotificationsCount(
-                notificationRepository.countByNotifierIdAndViewedFalse(notifierId)
+                notificationRepository.countByNotifierIdAndAppliedFalse(notifierId)
         );
         return response;
     }
@@ -324,7 +324,7 @@ public class NotifierService {
         
         NotifierResponse response = NotifierResponse.fromEntity(updatedNotifier);
         response.setUnreadNotificationsCount(
-                notificationRepository.countByNotifierIdAndViewedFalse(notifierId)
+                notificationRepository.countByNotifierIdAndAppliedFalse(notifierId)
         );
         return response;
     }

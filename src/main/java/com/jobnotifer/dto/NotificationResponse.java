@@ -27,7 +27,7 @@ public class NotificationResponse {
     private String relevanceReason;
     private String originalJobPosting;
     private LocalDateTime createdAt;
-    private Boolean viewed;
+    private Boolean applied;
     
     public static NotificationResponse fromEntity(Notification notification) {
         NotificationResponse response = new NotificationResponse();
@@ -51,7 +51,7 @@ public class NotificationResponse {
         response.setRelevanceReason(notification.getRelevanceReason());
         response.setOriginalJobPosting(notification.getOriginalJobPosting());
         response.setCreatedAt(notification.getCreatedAt());
-        response.setViewed(notification.getViewed());
+        response.setApplied(notification.getApplied());
         return response;
     }
 }

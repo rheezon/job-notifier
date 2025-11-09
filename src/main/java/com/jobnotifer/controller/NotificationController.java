@@ -26,11 +26,11 @@ public class NotificationController {
         return ResponseEntity.ok(notifications);
     }
     
-    @PutMapping("/{id}/viewed")
-    public ResponseEntity<NotificationResponse> markAsViewed(
+    @PutMapping("/{id}/applied")
+    public ResponseEntity<NotificationResponse> markAsApplied(
             @AuthenticationPrincipal UserPrincipal currentUser,
             @PathVariable Long id) {
-        NotificationResponse response = notificationService.markAsViewed(currentUser.getId(), id);
+        NotificationResponse response = notificationService.markAsApplied(currentUser.getId(), id);
         return ResponseEntity.ok(response);
     }
     

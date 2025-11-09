@@ -71,6 +71,6 @@ public class Notification {
     private LocalDateTime createdAt;
     
     @Column(nullable = false)
-    private Boolean viewed = false;
+    private Boolean applied = false;
 }
 

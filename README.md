@@ -10,6 +10,7 @@ A comprehensive job notification system that fetches jobs from a MySQL database,
 - **Resume Generation**: Compiles LaTeX resumes to PDF for each relevant job
 - **Cloud Storage**: Stores generated resumes on Cloudinary
 - **Scheduled Processing**: Configurable scheduler that processes jobs at regular intervals
+- **Deadline Reminders**: Daily scheduler sends email reminders 1 day before job deadlines
 - **RESTful API**: Complete REST API for frontend integration
 
 ## Architecture
@@ -233,14 +234,14 @@ Response:
     "jobDescription": "We are looking for...",
     "relevanceScore": 0.85,
     "relevanceReason": "Strong match based on...",
-    "viewed": false
+    "applied": false
   }
 ]
 ```
 
-#### Mark Notification as Viewed
+#### Mark Notification as Applied
 ```http
-PUT /api/notifications/{id}/viewed
+PUT /api/notifications/{id}/applied
 Authorization: Bearer <token>
 
 Response: Updated notification object
@@ -248,13 +249,16 @@ Response: Updated notification object
 
 ## Scheduler Configuration
 
-The scheduler processes jobs at regular intervals. Configuration options:
+The system includes two schedulers:
+
+### 1. Job Processing Scheduler
+
+Processes new jobs and matches them with user preferences. Configuration options:
 
 - `scheduler.fixed-rate`: Interval between runs (milliseconds)
-- `scheduler.max-runs`: Maximum number of scheduler runs
-- `scheduler.enabled`: Enable/disable scheduler
+- `scheduler.enabled`: Enable/disable job processing scheduler
 
-### How the Scheduler Works
+#### How Job Processing Works
 
 1. Runs every `fixed-rate` milliseconds
 2. Fetches unprocessed jobs from the last run window
@@ -266,6 +270,40 @@ The scheduler processes jobs at regular intervals. Configuration options:
      - Creates notification with resume link
 4. Marks jobs as processed
 5. Updates scheduler state
+6. Sends email notification to users with new relevant jobs
+
+### 2. Deadline Reminder Scheduler
+
+Sends email reminders to users 1 day before job application deadlines. Configuration options:
+
+- `scheduler.deadline-reminder.cron`: Cron expression for when to run (default: "0 0 9 * * ?" = 9:00 AM daily)
+- `scheduler.deadline-reminder.enabled`: Enable/disable deadline reminder scheduler
+
+#### How Deadline Reminders Work
+
+1. Runs once daily at the configured time (default 9:00 AM)
+2. Checks all unapplied notifications with deadlines
+3. Identifies jobs with deadlines tomorrow
+4. Groups notifications by user
+5. Sends reminder emails with job details and links
+6. Updates scheduler state in database
+
+#### Configuring Reminder Time
+
+You can change when reminders are sent by modifying the cron expression:
+
+```properties
+# Run at 8:00 AM daily
+scheduler.deadline-reminder.cron=0 0 8 * * ?
+
+# Run at 6:30 PM daily
+scheduler.deadline-reminder.cron=0 30 18 * * ?
+
+# Run at 10:00 AM on weekdays only (Mon-Fri)
+scheduler.deadline-reminder.cron=0 0 10 * * MON-FRI
+```
+
+Cron format: `second minute hour day month weekday`
 
 ## AI Prompt Configuration
 

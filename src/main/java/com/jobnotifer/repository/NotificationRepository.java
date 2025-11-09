@@ -9,7 +9,7 @@ import java.util.List;
 @Repository
 public interface NotificationRepository extends JpaRepository<Notification, Long> {
     List<Notification> findByNotifierIdOrderByTimestampDesc(Long notifierId);
-    List<Notification> findByNotifierIdAndViewedFalseOrderByTimestampDesc(Long notifierId);
-    Long countByNotifierIdAndViewedFalse(Long notifierId);
+    List<Notification> findByNotifierIdAndAppliedFalseOrderByTimestampDesc(Long notifierId);
+    Long countByNotifierIdAndAppliedFalse(Long notifierId);
 }
 

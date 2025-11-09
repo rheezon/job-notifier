@@ -39,7 +39,7 @@ public class NotificationService {
     }
     
     @Transactional
-    public NotificationResponse markAsViewed(Long userId, Long notificationId) {
+    public NotificationResponse markAsApplied(Long userId, Long notificationId) {
         Notification notification = notificationRepository.findById(notificationId)
                 .orElseThrow(() -> new RuntimeException("Notification not found"));
         
@@ -47,10 +47,10 @@ public class NotificationService {
             throw new RuntimeException("Unauthorized access to notification");
         }
         
-        notification.setViewed(true);
+        notification.setApplied(true);
         Notification updated = notificationRepository.save(notification);
         
-        log.info("Notification marked as viewed: {}", notificationId);
+        log.info("Notification marked as applied: {}", notificationId);
         
         return NotificationResponse.fromEntity(updated);
     }
