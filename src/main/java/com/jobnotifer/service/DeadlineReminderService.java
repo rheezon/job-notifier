@@ -91,7 +91,6 @@ public class DeadlineReminderService {
         
         log.info("Found {} users with jobs expiring tomorrow", userNotificationsMap.size());
         
-        // Send reminder emails to users
         int emailsSent = 0;
         for (Map.Entry<User, List<Notification>> entry : userNotificationsMap.entrySet()) {
             User user = entry.getKey();
@@ -107,7 +106,6 @@ public class DeadlineReminderService {
             }
         }
         
-        // Update scheduler state
         schedulerState.setCurrentRun(schedulerState.getCurrentRun() + 1);
         schedulerState.setLastRunTimestamp(currentTime);
         schedulerStateRepository.save(schedulerState);
@@ -189,7 +187,7 @@ public class DeadlineReminderService {
         body.append("Don't miss these opportunities! Apply before the deadline.\n\n");
         body.append("View all your notifications: ").append(frontendUrl).append("/notifications\n\n");
         body.append("Best regards,\n");
-        body.append("Jobsease Team");
+        body.append("Jobease Team");
         
         return body.toString();
     }

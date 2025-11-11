@@ -32,7 +32,7 @@ public class EmailService {
             SimpleMailMessage message = new SimpleMailMessage();
             message.setFrom(fromEmail);
             message.setTo(toEmail);
-            message.setSubject("Password Reset Request - Jobsease");
+            message.setSubject("Password Reset Request - Jobease");
             message.setText(buildPasswordResetEmailBody(resetLink));
             
             mailSender.send(message);
@@ -72,13 +72,13 @@ public class EmailService {
      */
     private String buildPasswordResetEmailBody(String resetLink) {
         return "Hello,\n\n" +
-                "You have requested to reset your password for Jobsease.\n\n" +
+                "You have requested to reset your password for Jobease.\n\n" +
                 "Please click the link below to reset your password:\n" +
                 resetLink + "\n\n" +
                 "This link will expire in 5 minutes.\n\n" +
                 "If you did not request this password reset, please ignore this email.\n\n" +
                 "Best regards,\n" +
-                "Jobsease Team";
+                "Jobease Team";
     }
 }
 

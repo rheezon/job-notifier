@@ -287,7 +287,7 @@ public class JobProcessingService {
                     "Don't miss out on these opportunities!\n\n" +
                     "Visit your dashboard to view the details and apply:\n%s\n\n" +
                     "Best regards,\n" +
-                    "Jobsease Team",
+                    "Jobease Team",
                     userName != null ? userName : "there",
                     notificationCount,
                     notificationCount == 1 ? "job" : "jobs",
