@@ -19,6 +19,16 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken.Payload;
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
+import com.google.api.client.http.javanet.NetHttpTransport;
+import com.google.api.client.json.jackson2.JacksonFactory;
+import org.springframework.beans.factory.annotation.Value;
+
+import java.security.SecureRandom;
+import java.util.Base64;
+import java.util.Collections;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -34,6 +44,9 @@ public class AuthService {
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final EmailService emailService;
     private final ForgotPasswordRateLimiter forgotPasswordRateLimiter;
+    
+    @Value("${google.clientId:}")
+    private String googleClientId;
     
     @Transactional
     public AuthResponse registerUser(SignupRequest signupRequest) {
@@ -73,6 +86,55 @@ public class AuthService {
         log.info("User authenticated successfully: {}", user.getEmail());
         
         return new AuthResponse(token, user.getId(), user.getEmail(), user.getFullName());
+    }
+    
+    public AuthResponse authenticateWithGoogle(String idTokenString) {
+        if (googleClientId == null || googleClientId.isBlank()) {
+            throw new RuntimeException("Google client ID is not configured on server");
+        }
+        try {
+            GoogleIdTokenVerifier verifier = new GoogleIdTokenVerifier.Builder(
+                    new NetHttpTransport(),
+                    JacksonFactory.getDefaultInstance())
+                    .setAudience(Collections.singletonList(googleClientId))
+                    .build();
+            
+            GoogleIdToken idToken = verifier.verify(idTokenString);
+            if (idToken == null) {
+                throw new RuntimeException("Invalid Google ID token");
+            }
+            Payload payload = idToken.getPayload();
+            String email = payload.getEmail();
+            boolean emailVerified = Boolean.TRUE.equals(payload.getEmailVerified());
+            String fullName = (String) payload.get("name");
+            
+            if (email == null || !emailVerified) {
+                throw new RuntimeException("Email not verified by Google");
+            }
+            
+            User user = userRepository.findByEmail(email).orElse(null);
+            if (user == null) {
+                user = new User();
+                user.setEmail(email);
+                user.setFullName(fullName != null ? fullName : email);
+                user.setPassword(passwordEncoder.encode(generateRandomPassword()));
+                user = userRepository.save(user);
+                log.info("Created new user via Google sign-in: {}", email);
+            } else {
+                log.info("Existing user logged in via Google: {}", email);
+            }
+            
+            String token = tokenProvider.generateTokenFromUserId(user.getId());
+            return new AuthResponse(token, user.getId(), user.getEmail(), user.getFullName());
+        } catch (Exception ex) {
+            throw new RuntimeException("Failed to verify Google token: " + ex.getMessage());
+        }
+    }
+    
+    private String generateRandomPassword() {
+        byte[] bytes = new byte[24];
+        new SecureRandom().nextBytes(bytes);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
     
     /**
