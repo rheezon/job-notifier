@@ -11,6 +11,7 @@ services:
       MYSQL_DATABASE: job_notifier_db
       MYSQL_USER: jobnotifier
       MYSQL_PASSWORD: jobnotifier123
+      TZ: UTC
     ports:
       - "3307:3306"  
     volumes:
@@ -18,6 +19,7 @@ services:
       - ./sample_data.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - job-notifier-network
+    command: --default-time-zone=+00:00
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpassword"]
       timeout: 20s
@@ -44,6 +46,7 @@ services:
       # JPA Configuration
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
       SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT: org.hibernate.dialect.MySQLDialect
+      SPRING_JPA_PROPERTIES_HIBERNATE_JDBC_TIME_ZONE: UTC
       
       # JWT Configuration (use your own secret in production!)
       JWT_SECRET: 5Jf8Kn2Lp9Qr3Ts6Uv1Wx4Yz7Ab0Cd8Ef1Gh4Ij7Kl0Mn3Op6Qr9St2Uv5Wx8Yz1Ab4Cd7Ef0Gh3Ij6Kl9Mn2Op5Qr8St1Uv4Wx7Yz0
@@ -52,6 +55,19 @@ services:
       # Scheduler Configuration
       SCHEDULER_FIXED_RATE: 60000
       SCHEDULER_ENABLED: true
+
+      # Deadline Reminder Scheduler
+      SCHEDULER_DEADLINE_REMINDER_CRON: 0 15 12 * * ?
+      SCHEDULER_DEADLINE_REMINDER_ENABLED: true
+
+      # Notification Cleanup Scheduler
+      SCHEDULER_NOTIFICATION_CLEANUP_CRON: 0 27 23 * * ?
+      SCHEDULER_NOTIFICATION_CLEANUP_DAYS_THRESHOLD: 10
+      SCHEDULER_NOTIFICATION_CLEANUP_ENABLED: true
+
+      # Rate Limiting
+      RATE_LIMIT_RESUME_UPDATE_COOLDOWN_MINUTES: 60
+      RATE_LIMIT_FORGOT_PASSWORD_COOLDOWN_MINUTES: 2
       
       # Notifier Configuration
       NOTIFIER_MAX_PER_USER: 5
@@ -69,9 +85,21 @@ services:
       # LaTeX Configuration
       LATEX_COMPILER_URL: https://latex.ytotech.com/builds/sync
       LATEX_TIMEOUT: 30000
+
+      # Email Configuration (Gmail SMTP)
+      SPRING_MAIL_HOST: smtp.gmail.com
+      SPRING_MAIL_PORT: 587
+      SPRING_MAIL_USERNAME: ${EMAIL_USERNAME}
+      SPRING_MAIL_PASSWORD: ${EMAIL_PASSWORD}
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH: true
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE: true
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_REQUIRED: true
+
+      APP_FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
       
       # Logging
       LOGGING_LEVEL_COM_JOBNOTIFER: INFO
+      LOGGING_FILE_PATH: logs
     depends_on:
       mysql:
         condition: service_healthy
