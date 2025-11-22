@@ -61,6 +61,9 @@ services:
       GEMINI_MODEL: gemini-2.0-flash
       AI_RELEVANCE_THRESHOLD: 0.7
       
+      # Google OAuth (used by AuthService via application.properties -> google.clientId=${GOOGLE_CLIENT_ID})
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      
       # Cloudinary Configuration
       CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME}
       CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY}

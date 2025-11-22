@@ -11,9 +11,11 @@ public class NotifierRequest {
     
     private String role;
     private String city;
+    @NotBlank(message = "Salary expectation is required")
     private String salaryExpectation;
     private String companiesPreference;
     private String experience;
+    @NotBlank(message = "Notice period is required")
     private String noticePeriod;
     private String skills;
     private String resumeLatex;
