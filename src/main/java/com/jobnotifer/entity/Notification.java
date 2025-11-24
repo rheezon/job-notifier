@@ -32,6 +32,9 @@ public class Notification {
     @Column(length = 1000)
     private String resumeLink;
     
+    @Column(length = 100000)
+    private String resumeLatex;
+    
     @Column(length = 1000)
     private String jobLink;
     

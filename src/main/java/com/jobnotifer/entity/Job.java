@@ -32,6 +32,9 @@ public class Job {
     
     @Column(nullable = false)
     private LocalDateTime createdAt;
+
+    @Column(nullable = true)
+    private Long hash_id;
     
     @PrePersist
     protected void onCreate() {

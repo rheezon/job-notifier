@@ -142,8 +142,14 @@ public class JobProcessingService {
             log.info("Job {} is relevant for notifier {} (score: {})", job.getId(), notifier.getId(), relevanceScore);
             
             String resumeLink = null;
+            String modifiedResumeLatex = null;
             if (notifier.getResumeLatex() != null && !notifier.getResumeLatex().isEmpty()) {
-                resumeLink = generateAndUploadResume(notifier, job);
+                // Modify resume LaTeX using AI to align with job posting
+                log.info("Modifying resume LaTeX for job {} using AI", job.getId());
+                modifiedResumeLatex = geminiService.modifyResumeForJob(notifier.getResumeLatex(), job.getJob());
+                
+                // Generate PDF from modified LaTeX
+                resumeLink = generateAndUploadResume(modifiedResumeLatex, notifier.getId(), job.getId());
             }
             
             String company = (String) analysisResult.get("company");
@@ -163,6 +169,7 @@ public class JobProcessingService {
             notification.setTimestamp(job.getTimestamp());
             notification.setSchedulerRun(schedulerRun);
             notification.setResumeLink(resumeLink);
+            notification.setResumeLatex(modifiedResumeLatex);
             notification.setJobLink(jobLink);
             notification.setCompanyName(company);
             notification.setRole(role);
@@ -186,24 +193,24 @@ public class JobProcessingService {
         return false;
     }
     
-    private String generateAndUploadResume(Notifier notifier, Job job) {
+    private String generateAndUploadResume(String resumeLatex, Long notifierId, Long jobId) {
         try {
-            byte[] pdfBytes = latexCompilerService.compileToPdf(notifier.getResumeLatex());
+            byte[] pdfBytes = latexCompilerService.compileToPdf(resumeLatex);
             
             if (pdfBytes == null) {
-                log.error("Failed to compile LaTeX for notifier {}", notifier.getId());
+                log.error("Failed to compile LaTeX for notifier {}", notifierId);
                 return null;
             }
             
             String fileName = String.format("resume_%s_%s_%s", 
-                    notifier.getId(), 
-                    job.getId(), 
+                    notifierId, 
+                    jobId, 
                     UUID.randomUUID().toString().substring(0, 8));
             
             String url = cloudinaryService.uploadPdfFromBytes(pdfBytes, fileName);
             
             log.info("Resume compiled and uploaded successfully for notifier {} ({} bytes)", 
-                    notifier.getId(), pdfBytes.length);
+                    notifierId, pdfBytes.length);
             
             return url;
             

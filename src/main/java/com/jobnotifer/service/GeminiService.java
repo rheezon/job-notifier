@@ -27,6 +27,9 @@ public class GeminiService {
     @Value("${ai.prompt.template}")
     private String promptTemplate;
     
+    @Value("${ai.resume.modification.prompt}")
+    private String resumeModificationPrompt;
+    
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final WebClient webClient;
     
@@ -149,6 +152,76 @@ public class GeminiService {
                 .replace("{experience}", notifier.getExperience() != null ? notifier.getExperience() : "Any")
                 .replace("{noticePeriod}", notifier.getNoticePeriod() != null ? notifier.getNoticePeriod() : "Any")
                 .replace("{education}", educationInfo != null && !educationInfo.isEmpty() ? educationInfo : "Not specified");
+    }
+    
+    /**
+     * Modify resume LaTeX to better align with job posting
+     * Only makes minimal changes - adds relevant missing skills, preserves structure
+     * @param resumeLatex Original resume LaTeX
+     * @param jobPosting Job posting text
+     * @return Modified resume LaTeX
+     */
+    public String modifyResumeForJob(String resumeLatex, String jobPosting) {
+        try {
+            String prompt = resumeModificationPrompt
+                    .replace("{job}", jobPosting)
+                    .replace("{resumeLatex}", resumeLatex);
+            
+            Map<String, Object> requestBody = new HashMap<>();
+            
+            Map<String, Object> content = new HashMap<>();
+            Map<String, String> part = new HashMap<>();
+            part.put("text", prompt);
+            content.put("parts", List.of(part));
+            
+            requestBody.put("contents", List.of(content));
+            
+            Map<String, Object> generationConfig = new HashMap<>();
+            generationConfig.put("temperature", 0.2);
+            generationConfig.put("maxOutputTokens", 8000);
+            requestBody.put("generationConfig", generationConfig);
+            
+            log.debug("Calling Gemini API to modify resume LaTeX");
+            
+            String response = webClient.post()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/v1beta/models/" + model + ":generateContent")
+                            .queryParam("key", apiKey)
+                            .build())
+                    .bodyValue(requestBody)
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .block();
+            
+            log.debug("Gemini API response for resume modification");
+            
+            JsonNode responseNode = objectMapper.readTree(response);
+            String modifiedLatex = responseNode
+                    .path("candidates").get(0)
+                    .path("content")
+                    .path("parts").get(0)
+                    .path("text").asText();
+            
+            // Clean up the response - remove markdown code blocks if present
+            modifiedLatex = modifiedLatex.trim();
+            if (modifiedLatex.startsWith("```latex")) {
+                modifiedLatex = modifiedLatex.substring(8);
+            } else if (modifiedLatex.startsWith("```")) {
+                modifiedLatex = modifiedLatex.substring(3);
+            }
+            if (modifiedLatex.endsWith("```")) {
+                modifiedLatex = modifiedLatex.substring(0, modifiedLatex.length() - 3);
+            }
+            modifiedLatex = modifiedLatex.trim();
+            
+            log.info("Resume LaTeX modified successfully by AI");
+            return modifiedLatex;
+            
+        } catch (Exception e) {
+            log.error("Error modifying resume LaTeX with Gemini AI. Returning original LaTeX.", e);
+            // Return original LaTeX if AI modification fails
+            return resumeLatex;
+        }
     }
 }
 

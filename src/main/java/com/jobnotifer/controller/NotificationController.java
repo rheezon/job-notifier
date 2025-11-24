@@ -1,8 +1,10 @@
 package com.jobnotifer.controller;
 
 import com.jobnotifer.dto.NotificationResponse;
+import com.jobnotifer.dto.ResumeUpdateRequest;
 import com.jobnotifer.security.UserPrincipal;
 import com.jobnotifer.service.NotificationService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -40,6 +42,16 @@ public class NotificationController {
             @PathVariable Long id) {
         notificationService.deleteNotification(currentUser.getId(), id);
         return ResponseEntity.noContent().build();
+    }
+    
+    @PatchMapping("/{id}/resume")
+    public ResponseEntity<NotificationResponse> updateNotificationResume(
+            @AuthenticationPrincipal UserPrincipal currentUser,
+            @PathVariable Long id,
+            @Valid @RequestBody ResumeUpdateRequest request) {
+        NotificationResponse response = notificationService.updateNotificationResume(
+                currentUser.getId(), id, request.getResumeLatex());
+        return ResponseEntity.ok(response);
     }
 }
 

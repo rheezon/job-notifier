@@ -45,13 +45,13 @@ public class Notifier {
     @Column(length = 2000)
     private String skills;
     
-    @Column(length = 10000)
+    @Column(length = 100000)
     private String resumeLatex;
     
-    @Column(length = 500)
+    @Column(length = 1000)
     private String latexResumePdfUrl;
     
-    @Column(length = 1000)
+    @Column(length = 10000)
     private String additionalPreferences;
     
     @Column(nullable = false)
